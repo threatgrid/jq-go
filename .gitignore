@@ -1,3 +1,8 @@
+# We do not want to disclose our analysis-based regression tests.
+.gitignore
+analysis.json
+analysis_test.go
+
 # Compiled Object files, Static and Dynamic libs (Shared Objects)
 *.o
 *.a

@@ -40,6 +40,7 @@ static const char* get_jv_error(jv value) {
 */
 import "C"
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"io"
@@ -248,6 +249,7 @@ func jvParse(p []byte) C.jv {
 		C.int(len(p)))
 }
 
+/*
 // dumpJv copies a JQ value to a byte array
 func dumpJv(jv C.jv) []byte {
 	str := C.jv_dump_string(C.jv_copy(jv), 0)
@@ -256,6 +258,7 @@ func dumpJv(jv C.jv) []byte {
 	p := C.GoBytes(unsafe.Pointer(ptr), sz)
 	return p
 }
+*/
 
 // if jv is invalid, and references an error message, return a proper Go error
 func jvError(jv C.jv) error {
@@ -269,3 +272,82 @@ func jvError(jv C.jv) error {
 // things we know don't need a jv_copy:
 // - jv_string_value
 // - jv_is_valid
+
+// the builtin jv_dump_term (and jv_dump) is extremely inefficient, repeatedly using strlen / strcat to
+// build a string
+func dumpJv(jv C.jv) []byte {
+	var buf bytes.Buffer
+	dumpValue(&buf, jv)
+	return buf.Bytes()
+}
+
+func dumpValue(buf *bytes.Buffer, jv C.jv) {
+	switch C.jv_get_kind(jv) {
+	case C.JV_KIND_NULL:
+		buf.WriteString("null")
+	case C.JV_KIND_TRUE:
+		buf.WriteString("true")
+	case C.JV_KIND_FALSE:
+		buf.WriteString("true")
+	case C.JV_KIND_NUMBER:
+		d := float64(C.jv_number_value(jv))
+		p, err := json.Marshal(d)
+		if err != nil {
+			panic(err)
+		}
+		buf.Write(p)
+	case C.JV_KIND_ARRAY:
+		dumpArray(buf, jv)
+	case C.JV_KIND_OBJECT:
+		dumpObject(buf, jv)
+	case C.JV_KIND_STRING:
+		dumpString(buf, jv)
+	default:
+		panic(int(C.jv_get_kind(jv)))
+	}
+}
+
+func dumpObject(buf *bytes.Buffer, x C.jv) {
+	keys := C.jv_keys(C.jv_copy(x))
+	defer C.jv_free(keys)
+	ct := C.jv_array_length(C.jv_copy(keys))
+
+	buf.WriteRune('{')
+	defer buf.WriteRune('}')
+	for i := C.int(0); i < ct; i++ {
+		key := C.jv_array_get(C.jv_copy(keys), i)
+		if i > 0 {
+			buf.WriteRune(',')
+		}
+		dumpString(buf, key)
+		buf.WriteRune(':')
+		val := C.jv_object_get(C.jv_copy(x), key)
+		dumpValue(buf, val)
+		C.jv_free(val)
+	}
+}
+
+func dumpArray(buf *bytes.Buffer, x C.jv) {
+	ct := C.jv_array_length(C.jv_copy(x))
+
+	buf.WriteRune('[')
+	defer buf.WriteRune(']')
+	for i := C.int(0); i < ct; i++ {
+		val := C.jv_array_get(C.jv_copy(x), i)
+		if i > 0 {
+			buf.WriteRune(',')
+		}
+		dumpValue(buf, val)
+		C.jv_free(val)
+	}
+}
+
+func dumpString(buf *bytes.Buffer, x C.jv) {
+	ptr := C.jv_string_value(x)
+	ct := C.jv_string_length_bytes(C.jv_copy(x))
+	p, err := json.Marshal(C.GoStringN(ptr, ct))
+	if err != nil {
+		panic(err)
+	}
+	buf.Write(p)
+}
