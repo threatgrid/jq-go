@@ -49,6 +49,7 @@ import (
 // Dump dumps the results of Apply to a writer, following each result with a newline.
 func Dump(w io.Writer, proc string, input ...interface{}) error {
 	vm, err := Compile(proc)
+	defer vm.Close()
 	if err != nil {
 		return err
 	}
@@ -58,6 +59,7 @@ func Dump(w io.Writer, proc string, input ...interface{}) error {
 // Apply compiles a JQ filter, and applies it to one or more inputs.
 func Apply(proc string, input ...interface{}) ([][]byte, error) {
 	vm, err := Compile(proc)
+	defer vm.Close()
 	if err != nil {
 		return nil, err
 	}
