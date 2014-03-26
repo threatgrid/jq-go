@@ -19,7 +19,7 @@ static void on_jq_err(void *cx, jv err) {
 	*(const char**)cx = jv_string_value(err);
 }
 
-static int set_err_cb(jq_state *jq, const char **msg) {
+static void set_err_cb(jq_state *jq, const char **msg) {
 	if (msg == NULL) {
 		jq_set_error_cb(jq, NULL, NULL);
 		return;
