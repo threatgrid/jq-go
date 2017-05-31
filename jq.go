@@ -288,7 +288,7 @@ func dumpValue(buf *bytes.Buffer, jv C.jv) {
 	case C.JV_KIND_TRUE:
 		buf.WriteString("true")
 	case C.JV_KIND_FALSE:
-		buf.WriteString("true")
+		buf.WriteString("false")
 	case C.JV_KIND_NUMBER:
 		d := float64(C.jv_number_value(jv))
 		p, err := json.Marshal(d)
